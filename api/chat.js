@@ -9,39 +9,53 @@ export default async function handler(req, res) {
   try {
     const { message } = req.body || {};
 
-    if (!message || typeof message !== "string") {
+    if (
+      typeof message !== "string" ||
+      !message.trim()
+    ) {
       return res.status(400).json({
         error: "Please enter a message."
       });
     }
 
-    if (message.length > 4000) {
+    if (message.length > 8000) {
       return res.status(400).json({
         error: "Message is too long."
       });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({
-        error: "AI configuration is missing."
+        error: "Gemini API key is not configured."
       });
     }
 
     const response = await fetch(
-      "https://api.openai.com/v1/responses",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "x-goog-api-key": apiKey
         },
         body: JSON.stringify({
-          model: "gpt-4.1-mini",
-          instructions:
-            "You are RJARVIS AI, a helpful, intelligent and friendly personal assistant. Give clear and accurate answers.",
-          input: message
+          systemInstruction: {
+            parts: [{
+              text: "You are RJARVIS AI, an intelligent and friendly personal assistant. Help users with studies, coding, technology and everyday questions. Give accurate, clear and helpful answers. Reply in the language used by the user."
+            }]
+          },
+          contents: [{
+            role: "user",
+            parts: [{
+              text: message
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048
+          }
         })
       }
     );
@@ -49,24 +63,31 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OpenAI API error:", data.error);
+      console.error("Gemini API error:", data.error);
+
       return res.status(502).json({
-        error: "AI service is temporarily unavailable."
+        error: "Gemini service error. Please try again."
       });
     }
 
-    const reply = (data.output || [])
-      .flatMap(item => item.content || [])
-      .filter(item => item.type === "output_text")
-      .map(item => item.text)
-      .join("\n");
+    const reply =
+      data.candidates?.[0]?.content?.parts
+        ?.map(part => part.text || "")
+        .join("")
+        .trim();
+
+    if (!reply) {
+      return res.status(502).json({
+        error: "No response received from Gemini."
+      });
+    }
 
     return res.status(200).json({
-      reply: reply || "I couldn't generate a reply."
+      reply: reply
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Server error:", error);
 
     return res.status(500).json({
       error: "Something went wrong."
