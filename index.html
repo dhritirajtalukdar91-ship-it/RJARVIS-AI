@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RJARVIS AI</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background: #050b18;
+    color: white;
+    min-height: 100vh;
+}
+
+header {
+    padding: 22px;
+    text-align: center;
+    border-bottom: 1px solid #123b68;
+}
+
+header h1 {
+    color: #25c8ff;
+    letter-spacing: 3px;
+}
+
+header p {
+    color: #8daecb;
+    margin-top: 8px;
+}
+
+.container {
+    max-width: 850px;
+    margin: 35px auto;
+    padding: 20px;
+}
+
+.status {
+    text-align: center;
+    color: #39e6b0;
+    margin-bottom: 20px;
+}
+
+.card {
+    background: #0c1930;
+    border: 1px solid #174675;
+    border-radius: 15px;
+    padding: 22px;
+    margin-bottom: 20px;
+}
+
+h2 {
+    color: #25c8ff;
+    margin-bottom: 15px;
+}
+
+#chat {
+    height: 300px;
+    overflow-y: auto;
+    background: #071225;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.message {
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 8px;
+    line-height: 1.5;
+}
+
+.user {
+    background: #123d67;
+    text-align: right;
+}
+
+.jarvis {
+    background: #102c38;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid #23618e;
+    border-radius: 8px;
+    background: #071225;
+    color: white;
+    margin-bottom: 10px;
+    outline: none;
+}
+
+textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+button {
+    background: #087fbd;
+    color: white;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin: 4px;
+}
+
+button:hover {
+    background: #09a9e9;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+footer {
+    text-align: center;
+    padding: 25px;
+    color: #7894ad;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>RJARVIS AI</h1>
+    <p>Your Personal Browser Assistant</p>
+</header>
+
+<div class="container">
+
+    <div class="status">● SYSTEM ONLINE</div>
+
+    <div class="card">
+        <h2>AI Assistant</h2>
+        <div id="chat">
+            <div class="message jarvis">
+                RJARVIS: Hello! I am RJARVIS. How can I help you today?
+            </div>
+        </div>
+
+        <input type="text" id="userInput"
+        placeholder="Type your message here..."
+        onkeydown="if(event.key==='Enter') sendMessage()">
+
+        <div class="actions">
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="startVoice()">🎤 Speak</button>
+            <button onclick="speakLast()">🔊 Speak Reply</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Personal Notes</h2>
+        <textarea id="note" placeholder="Write your notes here..."></textarea>
+        <button onclick="saveNote()">Save Notes</button>
+        <button onclick="loadNote()">Load Notes</button>
+        <p id="noteStatus"></p>
+    </div>
+
+    <div class="card">
+        <h2>Image Preview</h2>
+        <input type="file" id="imageInput" accept="image/*"
+        onchange="previewImage(event)">
+        <img id="preview" style="max-width:100%; display:none; border-radius:10px;">
+    </div>
+
+</div>
+
+<footer>
+    RJARVIS AI © <span id="year"></span> | Personal Assistant
+</footer>
+
+<script>
+let lastReply = "Hello! How can I help you?";
+
+document.getElementById("year").textContent =
+new Date().getFullYear();
+
+function addMessage(text, type) {
+    let chat = document.getElementById("chat");
+    let div = document.createElement("div");
+
+    div.className = "message " + type;
+    div.textContent = text;
+
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function sendMessage() {
+    let input = document.getElementById("userInput");
+    let message = input.value.trim();
+
+    if (!message) return;
+
+    addMessage("You: " + message, "user");
+    input.value = "";
+
+    let text = message.toLowerCase();
+    let reply = "I am still learning. Please ask me something else.";
+
+    if (text.includes("hello") || text.includes("hi")) {
+        reply = "Hello! I am RJARVIS. Nice to meet you.";
+    } else if (text.includes("your name")) {
+        reply = "My name is RJARVIS AI, your browser assistant.";
+    } else if (text.includes("time")) {
+        reply = "The current time is " +
+        new Date().toLocaleTimeString();
+    } else if (text.includes("date")) {
+        reply = "Today's date is " +
+        new Date().toLocaleDateString();
+    } else if (text.includes("how are you")) {
+        reply = "I am online and ready to help you.";
+    } else if (text.includes("thank")) {
+        reply = "You are welcome!";
+    } else if (text.includes("help")) {
+        reply = "I can show the time, date, save notes and speak replies.";
+    }
+
+    lastReply = reply;
+
+    setTimeout(function() {
+        addMessage("RJARVIS: " + reply, "jarvis");
+    }, 400);
+}
+
+function startVoice() {
+    let SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert("Voice recognition is not supported in this browser. Try Chrome.");
+        return;
+    }
+
+    let recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.start();
+
+    recognition.onresult = function(event) {
+        document.getElementById("userInput").value =
+        event.results[0][0].transcript;
+        sendMessage();
+    };
+}
+
+function speakLast() {
+    let speech = new SpeechSynthesisUtterance(lastReply);
+    speech.lang = "en-IN";
+    speech.rate = 1;
+    speech.pitch = 1.1;
+    window.speechSynthesis.speak(speech);
+}
+
+function saveNote() {
+    localStorage.setItem(
+        "rjarvisNote",
+        document.getElementById("note").value
+    );
+
+    document.getElementById("noteStatus").textContent =
+    "Notes saved successfully!";
+}
+
+function loadNote() {
+    document.getElementById("note").value =
+    localStorage.getItem("rjarvisNote") || "";
+
+    document.getElementById("noteStatus").textContent =
+    "Notes loaded!";
+}
+
+function previewImage(event) {
+    let file = event.target.files[0];
+
+    if (!file) return;
+
+    let preview = document.getElementById("preview");
+    preview.src = URL.createObjectURL(file);
+    preview.style.display = "block";
+}
+</script>
+
+</body>
+</html>
