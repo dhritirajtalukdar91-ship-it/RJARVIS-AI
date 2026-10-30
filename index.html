@@ -197,41 +197,46 @@ function addMessage(text, type) {
     chat.scrollTop = chat.scrollHeight;
 }
 
-function sendMessage() {
-    let input = document.getElementById("userInput");
-    let message = input.value.trim();
+
+async function sendMessage() {
+    const input = document.getElementById("userInput");
+    const message = input.value.trim();
 
     if (!message) return;
 
     addMessage("You: " + message, "user");
     input.value = "";
 
-    let text = message.toLowerCase();
-    let reply = "I am still learning. Please ask me something else.";
+    const chat = document.getElementById("chat");
 
-    if (text.includes("hello") || text.includes("hi")) {
-        reply = "Hello! I am RJARVIS. Nice to meet you.";
-    } else if (text.includes("your name")) {
-        reply = "My name is RJARVIS AI, your browser assistant.";
-    } else if (text.includes("time")) {
-        reply = "The current time is " +
-        new Date().toLocaleTimeString();
-    } else if (text.includes("date")) {
-        reply = "Today's date is " +
-        new Date().toLocaleDateString();
-    } else if (text.includes("how are you")) {
-        reply = "I am online and ready to help you.";
-    } else if (text.includes("thank")) {
-        reply = "You are welcome!";
-    } else if (text.includes("help")) {
-        reply = "I can show the time, date, save notes and speak replies.";
+    const loading = document.createElement("div");
+    loading.className = "message jarvis";
+    loading.textContent = "RJARVIS: Thinking...";
+    chat.appendChild(loading);
+
+    try {
+        const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "AI connection failed");
+        }
+
+        lastReply = data.reply;
+        loading.textContent = "RJARVIS: " + data.reply;
+
+    } catch (error) {
+        loading.textContent = "RJARVIS: " + error.message;
     }
 
-    lastReply = reply;
-
-    setTimeout(function() {
-        addMessage("RJARVIS: " + reply, "jarvis");
-    }, 400);
+    chat.scrollTop = chat.scrollHeight;
 }
 
 function startVoice() {
