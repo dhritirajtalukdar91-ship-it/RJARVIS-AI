@@ -235,7 +235,13 @@ async function sendMessage() {
 }
 
 async function getAIReply(message, mode) {
+    const isLocalApp = ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
+        window.location.protocol === "file:";
+
     const localRequest = async () => {
+        if (!isLocalApp) {
+            throw new Error("Local AI runs only when RJARVIS is opened on this laptop. Use the Local Launcher from the GitHub project.");
+        }
         const response = await fetch("http://localhost:11434/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -254,6 +260,9 @@ async function getAIReply(message, mode) {
     };
 
     const cloudRequest = async () => {
+        if (window.location.protocol === "file:") {
+            throw new Error("Cloud AI is available on the deployed RJARVIS website. Open the Vercel website for Cloud mode.");
+        }
         const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -285,20 +294,21 @@ async function getAIReply(message, mode) {
         return reply;
     }
 
+    if (!isLocalApp) {
+        status.textContent = "Auto mode: using Cloud AI on the hosted website...";
+        const reply = await cloudRequest();
+        status.textContent = "Auto mode connected: Cloud AI";
+        return reply;
+    }
+
     status.textContent = "Auto mode: trying Local AI first...";
     try {
         const reply = await localRequest();
         status.textContent = "Auto mode connected: Local AI (Ollama)";
         return reply;
     } catch (localError) {
-        status.textContent = "Local AI unavailable; trying Cloud AI...";
-        try {
-            const reply = await cloudRequest();
-            status.textContent = "Auto mode connected: Cloud AI";
-            return reply;
-        } catch (cloudError) {
-            throw new Error("Local AI was unavailable and Cloud AI could not connect. Check Ollama or configure GEMINI_API_KEY in Vercel.");
-        }
+        status.textContent = "Local AI unavailable. Start Ollama and try again; Cloud mode is on the deployed website.";
+        throw new Error("Could not connect to Ollama on this laptop. Check that Ollama is running and the llama3.2:3b model is installed.");
     }
 }
 
