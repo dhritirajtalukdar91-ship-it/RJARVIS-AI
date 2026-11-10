@@ -142,6 +142,14 @@ footer {
 
     <div class="card">
         <h2>AI Assistant</h2>
+
+        <label for="aiMode" style="display:block;color:#8daecb;margin:0 0 8px;">AI Mode</label>
+        <select id="aiMode" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #23618e;border-radius:8px;background:#071225;color:white;">
+            <option value="auto">Auto (Local first, Cloud fallback)</option>
+            <option value="local">Local AI (Ollama)</option>
+            <option value="cloud">Cloud AI (Gemini)</option>
+        </select>
+        <p id="modeStatus" style="color:#8daecb;font-size:13px;margin-bottom:12px;">Auto mode tries Ollama on this computer, then Cloud AI.</p>
         <div id="chat">
             <div class="message jarvis">
                 RJARVIS: Hello! I am RJARVIS. How can I help you today?
@@ -215,28 +223,83 @@ async function sendMessage() {
     chat.appendChild(loading);
 
     try {
-        const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ message })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || "AI connection failed");
-        }
-
-        lastReply = data.reply;
-        loading.textContent = "RJARVIS: " + data.reply;
-
+        const mode = document.getElementById("aiMode").value;
+        const reply = await getAIReply(message, mode);
+        lastReply = reply;
+        loading.textContent = "RJARVIS: " + reply;
     } catch (error) {
         loading.textContent = "RJARVIS: " + error.message;
     }
 
     chat.scrollTop = chat.scrollHeight;
+}
+
+async function getAIReply(message, mode) {
+    const localRequest = async () => {
+        const response = await fetch("http://localhost:11434/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "llama3.2:3b",
+                messages: [{ role: "user", content: message }],
+                stream: false
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Ollama request failed");
+        const reply = data.message?.content?.trim();
+        if (!reply) throw new Error("Ollama returned an empty reply.");
+        return reply;
+    };
+
+    const cloudRequest = async () => {
+        const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Cloud AI connection failed");
+        return data.reply;
+    };
+
+    const status = document.getElementById("modeStatus");
+
+    if (mode === "local") {
+        status.textContent = "Connecting to Ollama on this computer...";
+        try {
+            const reply = await localRequest();
+            status.textContent = "Connected: Local AI (Ollama)";
+            return reply;
+        } catch (error) {
+            status.textContent = "Local AI unavailable. Open the app on this computer and check that Ollama is running.";
+            throw new Error("Local Ollama could not be reached. Make sure Ollama is running and open RJARVIS from a local address (localhost), then try again.");
+        }
+    }
+
+    if (mode === "cloud") {
+        status.textContent = "Connecting to Cloud AI...";
+        const reply = await cloudRequest();
+        status.textContent = "Connected: Cloud AI";
+        return reply;
+    }
+
+    status.textContent = "Auto mode: trying Local AI first...";
+    try {
+        const reply = await localRequest();
+        status.textContent = "Auto mode connected: Local AI (Ollama)";
+        return reply;
+    } catch (localError) {
+        status.textContent = "Local AI unavailable; trying Cloud AI...";
+        try {
+            const reply = await cloudRequest();
+            status.textContent = "Auto mode connected: Cloud AI";
+            return reply;
+        } catch (cloudError) {
+            throw new Error("Local AI was unavailable and Cloud AI could not connect. Check Ollama or configure GEMINI_API_KEY in Vercel.");
+        }
+    }
 }
 
 function startVoice() {
